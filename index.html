@@ -1,36 +1,283 @@
-async function sendMessage() {
-  const input = document.getElementById('userInput') || document.querySelector('input');
-  const chat = document.getElementById('chat') || document.querySelector('.chat-container');
-  const message = input.value.trim();
-  if (!message) return;
-
-  // Add User Message
-  chat.innerHTML += `<div class="message user" style="align-self:flex-end; background:#282a2c; padding:12px; border-radius:12px; margin:5px;">${message}</div>`;
-  input.value = '';
-  chat.scrollTop = chat.scrollHeight;
-
-  // Add Loading Message
-  const tempId = 'loading_' + Date.now();
-  chat.innerHTML += `<div id="${tempId}" class="message model" style="align-self:flex-start; padding:12px; margin:5px;">OmniAgent Core Processing...</div>`;
-  chat.scrollTop = chat.scrollHeight;
-
-  try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message })
-    });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniAgent AI</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     
-    const data = await res.json();
-    const loadingElem = document.getElementById(tempId);
-    if (loadingElem) {
-      loadingElem.innerHTML = data.reply || data.error || 'No response received.';
+    body {
+      background: #090a10;
+      background-image: radial-gradient(circle at 50% 30%, #1e1b4b 0%, #090a10 70%);
+      color: #e2e8f0;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
     }
-  } catch (err) {
-    const loadingElem = document.getElementById(tempId);
-    if (loadingElem) {
-      loadingElem.innerHTML = 'Failed to connect to /api/chat backend.';
+
+    /* Sidebar Styling */
+    .sidebar {
+      width: 260px;
+      background: rgba(15, 16, 26, 0.7);
+      backdrop-filter: blur(12px);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      gap: 20px;
     }
-  }
-  chat.scrollTop = chat.scrollHeight;
-}
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .brand span {
+      background: linear-gradient(135deg, #a855f7, #6366f1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .btn-new {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(99, 102, 241, 0.2));
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #e2e8f0;
+      padding: 10px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+      text-align: left;
+    }
+
+    .btn-new:hover {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(99, 102, 241, 0.4));
+    }
+
+    .history-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      font-weight: 700;
+    }
+
+    /* Main Chat Layout */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100vh;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 20px 10px;
+      scroll-behavior: smooth;
+    }
+
+    /* Message Bubbles */
+    .message {
+      max-width: 80%;
+      padding: 14px 18px;
+      border-radius: 16px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      word-wrap: break-word;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: #ffffff;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    }
+
+    .message.model {
+      align-self: flex-start;
+      background: rgba(30, 32, 48, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      border-bottom-left-radius: 4px;
+      backdrop-filter: blur(8px);
+    }
+
+    .message img {
+      max-width: 100%;
+      border-radius: 12px;
+      margin-top: 10px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Loading Spinner pulse */
+    .loading-pulse {
+      display: inline-block;
+      animation: pulse 1.5s infinite ease-in-out;
+      color: #a855f7;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+
+    /* Input Dock */
+    .input-wrapper {
+      background: rgba(22, 24, 38, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 28px;
+      display: flex;
+      align-items: center;
+      padding: 8px 16px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .input-wrapper input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #fff;
+      outline: none;
+      font-size: 1rem;
+      padding: 8px;
+    }
+
+    .input-wrapper button {
+      background: linear-gradient(135deg, #a855f7, #6366f1);
+      border: none;
+      color: white;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      transition: transform 0.1s;
+    }
+
+    .input-wrapper button:active {
+      transform: scale(0.95);
+    }
+
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { width: 100%; padding: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <span>OmniAgent AI</span>
+    </div>
+    <button class="btn-new" onclick="startNewChat()">+ New Chat</button>
+    <div class="history-label">Recent Chats</div>
+    <div style="font-size: 0.85rem; color: #64748b;">No recent chat history</div>
+  </aside>
+
+  <main class="main">
+    <div class="chat-container" id="chat">
+      <div class="message model">
+        Hello! I'm OmniAgent. Ask me anything, or type <b>"make an image of..."</b> to generate artwork!
+      </div>
+    </div>
+
+    <div class="input-wrapper">
+      <input type="text" id="userInput" placeholder="Ask anything or generate images..." onkeydown="handleKeyPress(event)" />
+      <button onclick="sendMessage()">↑</button>
+    </div>
+  </main>
+
+  <script>
+    const userId = 'user_3HOhfF4lmFJeTJG3kzvbuxM6rOD';
+
+    function handleKeyPress(e) {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    }
+
+    function startNewChat() {
+      const chat = document.getElementById('chat');
+      chat.innerHTML = `
+        <div class="message model">
+          Started a new conversation! How can I help you today?
+        </div>
+      `;
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('userInput');
+      const chat = document.getElementById('chat');
+      const message = input.value.trim();
+
+      if (!message) return;
+
+      // Render user message
+      const userBubble = document.createElement('div');
+      userBubble.className = 'message user';
+      userBubble.textContent = message;
+      chat.appendChild(userBubble);
+
+      // Clear input
+      input.value = '';
+      chat.scrollTop = chat.scrollHeight;
+
+      // Render loading placeholder
+      const tempId = 'loading_' + Date.now();
+      const loadingBubble = document.createElement('div');
+      loadingBubble.className = 'message model';
+      loadingBubble.id = tempId;
+      loadingBubble.innerHTML = '<span class="loading-pulse">⚙️ OmniAgent Processing...</span>';
+      chat.appendChild(loadingBubble);
+      chat.scrollTop = chat.scrollHeight;
+
+      try {
+        // Send request strictly to Vercel relative path
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, message })
+        });
+
+        const data = await res.json();
+        const activeLoadingBubble = document.getElementById(tempId);
+
+        if (activeLoadingBubble) {
+          if (res.ok && data.reply) {
+            // Render HTML (allows images & formatting)
+            activeLoadingBubble.innerHTML = data.reply.replace(/\n/g, '<br>');
+          } else {
+            activeLoadingBubble.innerHTML = `<span style="color:#ef4444;">${data.error || 'Server returned an error.'}</span>`;
+          }
+        }
+      } catch (err) {
+        const activeLoadingBubble = document.getElementById(tempId);
+        if (activeLoadingBubble) {
+          activeLoadingBubble.innerHTML = '<span style="color:#ef4444;">Connection failed. Check network or rate limits.</span>';
+        }
+      }
+
+      chat.scrollTop = chat.scrollHeight;
+    }
+  </script>
+</body>
+</html>
