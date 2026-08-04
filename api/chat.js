@@ -6,23 +6,24 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { message, image, thinkingMode } = req.body || {};
+    // Extract userId and message sent by your HTML script
+    const { userId, message, image, thinkingMode } = req.body || {};
     const cleanMessage = (message || '').trim();
 
-    // 1. Image Generation Prompt Check
+    // 1. Image Generation Prompt Route (Free via Pollinations)
     const isImagePrompt = /^(make|generate|draw|create)\b.*(image|picture|photo|artwork)/i.test(cleanMessage);
     if (isImagePrompt) {
       const encodedPrompt = encodeURIComponent(cleanMessage);
       const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600&nologo=true`;
       
       return res.status(200).json({
-        reply: `Here is your generated image:\n\n![${cleanMessage}](${imageUrl})`
+        reply: `Here is your generated image:<br><br><img src="${imageUrl}" style="max-width:100%; border-radius:12px; margin-top:10px;" />`
       });
     }
 
-    // 2. Gemini Text Chat Processing
+    // 2. Text Chat Route (Google Gemini API)
     if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: 'GEMINI_API_KEY environment variable missing in Vercel.' });
+      return res.status(500).json({ error: 'GEMINI_API_KEY environment variable missing on Vercel.' });
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
