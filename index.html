@@ -1,40 +1,36 @@
 async function sendMessage() {
-  const input = document.getElementById('userInput');
-  const chat = document.getElementById('chat');
+  const input = document.getElementById('userInput') || document.querySelector('input');
+  const chat = document.getElementById('chat') || document.querySelector('.chat-container');
   const message = input.value.trim();
   if (!message) return;
 
   // Add User Message
-  chat.innerHTML += `<div class="message user">${message}</div>`;
+  chat.innerHTML += `<div class="message user" style="align-self:flex-end; background:#282a2c; padding:12px; border-radius:12px; margin:5px;">${message}</div>`;
   input.value = '';
   chat.scrollTop = chat.scrollHeight;
 
-  // Temporary Loading Bubble
+  // Add Loading Message
   const tempId = 'loading_' + Date.now();
-  chat.innerHTML += `<div id="${tempId}" class="message model">Thinking...</div>`;
+  chat.innerHTML += `<div id="${tempId}" class="message model" style="align-self:flex-start; padding:12px; margin:5px;">OmniAgent Core Processing...</div>`;
   chat.scrollTop = chat.scrollHeight;
 
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, message })
+      body: JSON.stringify({ message })
     });
     
     const data = await res.json();
     const loadingElem = document.getElementById(tempId);
-    
-    if (data.reply) {
-      // Formats line breaks into HTML paragraphs/breaks
-      const formattedReply = data.reply.replace(/\n/g, '<br>');
-      loadingElem.innerHTML = formattedReply;
-    } else {
-      loadingElem.innerHTML = data.error || 'Error getting response';
+    if (loadingElem) {
+      loadingElem.innerHTML = data.reply || data.error || 'No response received.';
     }
   } catch (err) {
     const loadingElem = document.getElementById(tempId);
-    if (loadingElem) loadingElem.innerHTML = 'Connection error';
+    if (loadingElem) {
+      loadingElem.innerHTML = 'Failed to connect to /api/chat backend.';
+    }
   }
-  
   chat.scrollTop = chat.scrollHeight;
 }
