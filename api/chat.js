@@ -1,16 +1,18 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
 module.exports = async function handler(req, res) {
+  // Always return JSON, even on preflight/wrong methods
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(200).json({ reply: 'API route is working! Please send a POST request.' });
   }
 
   try {
-    // Extract userId and message sent by your HTML script
-    const { userId, message, image, thinkingMode } = req.body || {};
+    const { message } = req.body || {};
     const cleanMessage = (message || '').trim();
 
-    // 1. Image Generation Prompt Route (Free via Pollinations)
+    if (!cleanMessage) {
+      return res.status(200).json({ reply: 'Please enter a prompt!' });
+    }
+
+    // 1. IMAGE GENERATION ROUTE ( Pollinations.ai )
     const isImagePrompt = /^(make|generate|draw|create)\b.*(image|picture|photo|artwork)/i.test(cleanMessage);
     if (isImagePrompt) {
       const encodedPrompt = encodeURIComponent(cleanMessage);
@@ -21,37 +23,30 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 2. Text Chat Route (Google Gemini API)
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: 'GEMINI_API_KEY environment variable missing on Vercel.' });
+    // 2. TEXT CHAT ROUTE (Google Gemini API)
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(200).json({ reply: 'Error: GEMINI_API_KEY is not set in Vercel Environment Variables.' });
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const modelName = thinkingMode === 'flash' ? 'gemini-1.5-flash' : 'gemini-1.5-pro';
-    const model = genAI.getGenerativeModel({ model: modelName });
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: cleanMessage }] }]
+      })
+    });
 
-    let contents = [];
-    if (image) {
-      const base64Data = image.split(',')[1];
-      const mimeType = image.split(';')[0].split(':')[1];
-      contents.push({ inlineData: { data: base64Data, mimeType } });
+    const data = await response.json();
+
+    if (data.error) {
+      return res.status(200).json({ reply: `Gemini API Error: ${data.error.message}` });
     }
-    if (cleanMessage) {
-      contents.push(cleanMessage);
-    }
 
-    const result = await model.generateContent(contents);
-    const responseText = result.response.text();
+    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
+    return res.status(200).json({ reply: replyText });
 
-    return res.status(200).json({ reply: responseText });
-
-  } catch (error) {
-    console.error("API Error:", error);
-    if (error.status === 429 || error.message?.includes('429')) {
-      return res.status(429).json({ 
-        error: "Free tier rate limit reached. Please wait 15-20 seconds before asking again!" 
-      });
-    }
-    return res.status(500).json({ error: error.message || "Failed to process request." });
+  } catch (err) {
+    return res.status(200).json({ reply: `Server Error: ${err.message}` });
   }
 };
