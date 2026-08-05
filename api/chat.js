@@ -9,7 +9,7 @@ module.exports = async function handler(req, res) {
     const cleanMessage = (message || '').trim();
 
     if (!cleanMessage) {
-      return res.status(200).json({ reply: 'Please enter a prompt!' });
+      return res.status(200).json({ reply: 'Please provide a message.' });
     }
 
     // 1. IMAGE GENERATION ROUTE ( Pollinations.ai )
