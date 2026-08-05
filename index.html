@@ -1,68 +1,25 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OmniAgent AI</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: #090a10; color: #e2e8f0; display: flex; height: 100vh; overflow: hidden; }
-    .sidebar { width: 260px; background: rgba(15, 16, 26, 0.7); border-right: 1px solid rgba(255, 255, 255, 0.08); padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-    .brand { font-size: 1.25rem; font-weight: 700; color: #fff; }
-    .main { flex: 1; display: flex; flex-direction: column; max-width: 900px; margin: 0 auto; padding: 20px; height: 100vh; }
-    .chat-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding: 20px 0; }
-    .message { max-width: 80%; padding: 14px 18px; border-radius: 16px; font-size: 0.95rem; line-height: 1.6; }
-    .message.user { align-self: flex-end; background: #6366f1; color: #fff; }
-    .message.model { align-self: flex-start; background: rgba(30, 32, 48, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); }
-    .input-wrapper { background: rgba(22, 24, 38, 0.8); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 28px; display: flex; padding: 8px 16px; }
-    .input-wrapper input { flex: 1; background: transparent; border: none; color: #fff; outline: none; font-size: 1rem; }
-    .input-wrapper button { background: #6366f1; border: none; color: white; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; }
-  </style>
-</head>
-<body>
-  <aside class="sidebar">
-    <div class="brand">OmniAgent AI</div>
-  </aside>
+const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        message: userMessage,
+        image: uploadedImage || null,
+        thinkingMode: thinkingMode || 'flash'
+    })
+});
 
-  <main class="main">
-    <div class="chat-container" id="chat">
-      <div class="message model">Hello! I am OmniAgent. Ask me anything or type "make an image of..."</div>
-    </div>
-    <div class="input-wrapper">
-      <input type="text" id="userInput" placeholder="Ask anything..." onkeydown="if(event.key==='Enter') sendMessage()" />
-      <button onclick="sendMessage()">↑</button>
-    </div>
-  </main>
+if (!response.ok) {
+    throw new Error(`Server returned ${response.status}`);
+}
 
-  <script>
-    async function sendMessage() {
-      const input = document.getElementById('userInput');
-      const chat = document.getElementById('chat');
-      const message = input.value.trim();
-      if (!message) return;
+const data = await response.json();
 
-      chat.innerHTML += `<div class="message user">${message}</div>`;
-      input.value = '';
-      
-      const tempId = 'loading_' + Date.now();
-      chat.innerHTML += `<div id="${tempId}" class="message model">⚙️ Processing...</div>`;
-      chat.scrollTop = chat.scrollHeight;
+if (data.error) {
+    throw new Error(data.error);
+}
 
-      try {
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message })
-        });
-        const data = await res.json();
-        const elem = document.getElementById(tempId);
-        if (elem) elem.innerHTML = data.reply || data.error || 'No response';
-      } catch (err) {
-        const elem = document.getElementById(tempId);
-        if (elem) elem.innerHTML = 'Connection failed to /api/chat';
-      }
-      chat.scrollTop = chat.scrollHeight;
-    }
-  </script>
-</body>
-</html>
+const aiReply = data.reply || "No response received.";
+
+addMessage(aiReply, "assistant");
